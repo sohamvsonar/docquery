@@ -1,0 +1,27 @@
+# Production Docker Compose Override
+# Use with: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Or on EC2, replace volumes in main docker-compose.yml to use this configuration
+
+version: '3.8'
+
+services:
+  postgres:
+    volumes:
+      - /mnt/docquery-data/postgres:/var/lib/postgresql/data
+
+  redis:
+    volumes:
+      - /mnt/docquery-data/redis:/data
+
+  backend:
+    volumes:
+      - /mnt/docquery-data/uploads:/app/uploads
+    command: >
+      sh -c "
+        python scripts/init_db.py &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
+      "
+
+  celery_worker:
+    volumes:
+      - /mnt/docquery-data/uploads:/app/uploads
