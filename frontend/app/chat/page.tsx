@@ -19,6 +19,11 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { MessageSquare, Paperclip } from "lucide-react";
 
+interface Attachment {
+  name: string;
+  timestamp: Date;
+}
+
 interface Message {
   id: string;
   type: "user" | "assistant";
@@ -26,6 +31,7 @@ interface Message {
   timestamp: Date;
   citations?: Citation[];
   isStreaming?: boolean;
+  attachments?: Attachment[];
 }
 
 interface ChatSession {
@@ -44,6 +50,7 @@ function ChatPageContent() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
+  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Get current session
@@ -192,6 +199,7 @@ function ChatPageContent() {
       type: "user",
       content: messageContent,
       timestamp: new Date(),
+      attachments: pendingAttachments.length ? [...pendingAttachments] : undefined,
     };
 
     // Create new session if none exists
@@ -226,6 +234,10 @@ function ChatPageContent() {
         updateSessionTitle(sessionId, userMessage.content);
       }
     }
+
+    // Hide upload box once query is sent and reset pending attachments
+    setShowUpload(false);
+    setPendingAttachments([]);
 
     setIsLoading(true);
 
@@ -380,6 +392,16 @@ function ChatPageContent() {
                           : "bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white"
                       }`}
                     >
+                      {message.attachments && message.attachments.length > 0 && (
+                        <div className="mb-2 flex flex-wrap gap-2 items-center">
+                          {message.attachments.map((att, idx) => (
+                            <span key={`${att.name}-${idx}`} className="inline-flex items-center gap-1 rounded bg-white/20 dark:bg-white/10 px-2 py-0.5 text-xs">
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 01-7.78-7.78l9.19-9.19a3.5 3.5 0 015 5l-9.2 9.19a1.5 1.5 0 11-2.12-2.12l8.13-8.13" /></svg>
+                              <span className="truncate max-w-[160px]">{att.name}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <div className="prose dark:prose-invert max-w-none prose-headings:font-bold prose-h3:text-lg prose-h3:mt-4 prose-h3:mb-2 prose-p:my-2 prose-ul:my-2 prose-li:my-1">
                         {message.content ? (
                           message.type === "assistant" ? (
@@ -453,7 +475,7 @@ function ChatPageContent() {
             {/* Upload Section */}
             {showUpload && (
               <div className="mb-4 px-4">
-                <FileUpload />
+                <FileUpload onUploaded={(file) => setPendingAttachments((prev) => [file, ...prev])} />
                 <Button
                   onClick={() => setShowUpload(false)}
                   variant="ghost"
