@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { MessageSquare, Paperclip } from "lucide-react";
 
 interface Message {
   id: string;
@@ -345,19 +346,21 @@ function ChatPageContent() {
           {messages.length === 0 ? (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center space-y-4">
-                <div className="text-6xl">ðŸ’¬</div>
+                <div className="flex items-center justify-center">
+                  <MessageSquare className="w-16 h-16 text-blue-500" />
+                </div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                   Ask anything about your documents
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400 max-w-md">
-                  I&apost;s search through your uploaded documents and provide
+                  I'll search through your uploaded documents and provide
                   answers with citations.
                 </p>
                 <Button
                   onClick={() => setShowUpload(!showUpload)}
                   variant="outline"
                 >
-                  {showUpload ? "Hide Upload" : "ðŸ“Ž Upload Documents"}
+                  {showUpload ? "Hide Upload" : "Upload Documents"}
                 </Button>
               </div>
             </div>
@@ -471,7 +474,7 @@ function ChatPageContent() {
                     variant="outline"
                     size="icon"
                   >
-                    ðŸ“Ž
+                    <Paperclip className="w-4 h-4" />
                   </Button>
                 )}
                 <div className="flex-1 relative">
@@ -514,4 +517,8 @@ export default function ChatPage() {
     </Suspense>
   );
 }
+
+
+
+
 
