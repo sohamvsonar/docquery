@@ -17,9 +17,7 @@ from app.auth import hash_password
 
 
 def create_admin_user():
-    """
-    Interactive script to create an admin user.
-    """
+    """Interactive script to create an admin user."""
     print("=" * 60)
     print("DocQuery - Create Admin User")
     print("=" * 60)
@@ -31,13 +29,13 @@ def create_admin_user():
         username = input("\nEnter admin username: ").strip()
 
         if not username or len(username) < 3:
-            print("✗ Username must be at least 3 characters long")
+            print("- Username must be at least 3 characters long")
             return
 
         # Check if username already exists
         existing_user = db.query(User).filter(User.username == username).first()
         if existing_user:
-            print(f"✗ User '{username}' already exists")
+            print(f"- User '{username}' already exists")
             return
 
         # Prompt for email (optional)
@@ -50,17 +48,17 @@ def create_admin_user():
         password_confirm = getpass.getpass("Confirm admin password: ")
 
         if password != password_confirm:
-            print("✗ Passwords do not match")
+            print("- Passwords do not match")
             return
 
         if len(password) < 8:
-            print("✗ Password must be at least 8 characters long")
+            print("- Password must be at least 8 characters long")
             return
 
         # Check bcrypt 72-byte limit
         if len(password.encode('utf-8')) > 72:
-            print("✗ Password is too long (max 72 bytes)")
-            print("  Please use a shorter password (up to 72 characters)")
+            print("- Password is too long (max 72 bytes)")
+            print("  Please use a shorter password (up to 72 characters; ASCII recommended)")
             return
 
         # Create admin user
@@ -87,9 +85,9 @@ def create_admin_user():
         print("=" * 60)
 
     except KeyboardInterrupt:
-        print("\n\n✗ Operation cancelled by user")
+        print("\n\n- Operation cancelled by user")
     except Exception as e:
-        print(f"\n✗ Error creating admin user: {e}")
+        print(f"\n- Error creating admin user: {e}")
         db.rollback()
     finally:
         db.close()
@@ -97,3 +95,4 @@ def create_admin_user():
 
 if __name__ == "__main__":
     create_admin_user()
+
