@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 /**
  * Chat Page with Sessions
@@ -14,7 +14,6 @@ import { useAuthStore } from "@/store/authStore";
 import { ragAPI } from "@/lib/api";
 import type { RAGResponse, Citation } from "@/types/api";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -346,19 +345,19 @@ export default function ChatPage() {
           {messages.length === 0 ? (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center space-y-4">
-                <div className="text-6xl">💬</div>
+                <div className="text-6xl">ðŸ’¬</div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                   Ask anything about your documents
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400 max-w-md">
-                  I'll search through your uploaded documents and provide
+                  I&apost;s search through your uploaded documents and provide
                   answers with citations.
                 </p>
                 <Button
                   onClick={() => setShowUpload(!showUpload)}
                   variant="outline"
                 >
-                  {showUpload ? "Hide Upload" : "📎 Upload Documents"}
+                  {showUpload ? "Hide Upload" : "ðŸ“Ž Upload Documents"}
                 </Button>
               </div>
             </div>
@@ -384,37 +383,37 @@ export default function ChatPage() {
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
                               components={{
-                                h3: ({ node, ...props }) => (
+                                h3: ({ _node, ...props }) => (
                                   <h3
                                     className="text-lg font-bold mt-4 mb-2"
                                     {...props}
                                   />
                                 ),
-                                h4: ({ node, ...props }) => (
+                                h4: ({ _node, ...props }) => (
                                   <h4
                                     className="text-base font-semibold mt-3 mb-1"
                                     {...props}
                                   />
                                 ),
-                                ul: ({ node, ...props }) => (
+                                ul: ({ _node, ...props }) => (
                                   <ul
                                     className="list-disc list-inside my-2 space-y-1"
                                     {...props}
                                   />
                                 ),
-                                ol: ({ node, ...props }) => (
+                                ol: ({ _node, ...props }) => (
                                   <ol
                                     className="list-decimal list-inside my-2 space-y-1"
                                     {...props}
                                   />
                                 ),
-                                p: ({ node, ...props }) => (
+                                p: ({ _node, ...props }) => (
                                   <p
                                     className="my-2 leading-relaxed"
                                     {...props}
                                   />
                                 ),
-                                code: ({ node, inline, ...props }: any) =>
+                                code: ({ _node, inline, ...props }: any) =>
                                   inline ? (
                                     <code
                                       className="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded text-sm"
@@ -491,7 +490,7 @@ export default function ChatPage() {
                     variant="outline"
                     size="icon"
                   >
-                    📎
+                    ðŸ“Ž
                   </Button>
                 )}
                 <div className="flex-1 relative">
@@ -526,3 +525,4 @@ export default function ChatPage() {
     </ProtectedRoute>
   );
 }
+
