@@ -5,7 +5,7 @@
  * RAG-powered Q&A interface with multiple chat sessions
  */
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppLayout from "@/components/AppLayout";
@@ -35,7 +35,7 @@ interface ChatSession {
   updatedAt: Date;
 }
 
-export default function ChatPage() {
+function ChatPageContent() {
   const { user } = useAuthStore();
   const searchParams = useSearchParams();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -383,48 +383,29 @@ export default function ChatPage() {
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
                               components={{
-                                h3: ({ _node, ...props }) => (
-                                  <h3
-                                    className="text-lg font-bold mt-4 mb-2"
-                                    {...props}
-                                  />
+                                h3: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
+                                  <h3 className="text-lg font-bold mt-4 mb-2" {...props} />
                                 ),
-                                h4: ({ _node, ...props }) => (
-                                  <h4
-                                    className="text-base font-semibold mt-3 mb-1"
-                                    {...props}
-                                  />
+                                h4: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
+                                  <h4 className="text-base font-semibold mt-3 mb-1" {...props} />
                                 ),
-                                ul: ({ _node, ...props }) => (
-                                  <ul
-                                    className="list-disc list-inside my-2 space-y-1"
-                                    {...props}
-                                  />
+                                ul: (props: React.HTMLAttributes<HTMLUListElement>) => (
+                                  <ul className="list-disc list-inside my-2 space-y-1" {...props} />
                                 ),
-                                ol: ({ _node, ...props }) => (
-                                  <ol
-                                    className="list-decimal list-inside my-2 space-y-1"
-                                    {...props}
-                                  />
+                                ol: (props: React.HTMLAttributes<HTMLOListElement>) => (
+                                  <ol className="list-decimal list-inside my-2 space-y-1" {...props} />
                                 ),
-                                p: ({ _node, ...props }) => (
-                                  <p
-                                    className="my-2 leading-relaxed"
-                                    {...props}
-                                  />
+                                p: (props: React.HTMLAttributes<HTMLParagraphElement>) => (
+                                  <p className="my-2 leading-relaxed" {...props} />
                                 ),
-                                code: ({ _node, inline, ...props }: any) =>
-                                  inline ? (
-                                    <code
-                                      className="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded text-sm"
-                                      {...props}
-                                    />
+                                code: (props: any) => {
+                                  const { inline, ...rest } = props as any;
+                                  return inline ? (
+                                    <code className="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded text-sm" {...rest} />
                                   ) : (
-                                    <code
-                                      className="block bg-gray-200 dark:bg-gray-700 p-2 rounded my-2 text-sm overflow-x-auto"
-                                      {...props}
-                                    />
-                                  ),
+                                    <code className="block bg-gray-200 dark:bg-gray-700 p-2 rounded my-2 text-sm overflow-x-auto" {...rest} />
+                                  );
+                                },
                               }}
                             >
                               {message.content}
@@ -523,6 +504,14 @@ export default function ChatPage() {
         </div>
       </AppLayout>
     </ProtectedRoute>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={<div className="p-4 text-sm text-gray-500">Loading…</div>}>
+      <ChatPageContent />
+    </Suspense>
   );
 }
 
