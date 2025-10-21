@@ -70,7 +70,7 @@ export default function DocumentList({
   const handleDownload = async (documentId: number, filename: string) => {
     try {
       const token = localStorage.getItem("access_token");
-      const response = await fetch(`http://api.docquery.me/upload/${documentId}/download`, {
+      const response = await fetch(`https://api.docquery.me/upload/${documentId}/download`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
