@@ -68,13 +68,13 @@ const ALLOWED_EXTENSIONS = [
 ];
 
 interface FileUploadProps {
-  onUploaded?: (file: { name: string; timestamp: Date }) => void;
+  onUploaded?: (file: { name: string; timestamp: Date; document_id: number }) => void;
 }
 
 export default function FileUpload({ onUploaded }: FileUploadProps) {
   const { uploadDocument, isUploading, uploadProgress, error, clearError } = useDocumentsStore();
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; timestamp: Date }>>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; timestamp: Date; document_id: number }>>([]);
   const [showPicker, setShowPicker] = useState(true);
 
   const validateFile = (file: File): string | null => {
@@ -96,18 +96,18 @@ export default function FileUpload({ onUploaded }: FileUploadProps) {
     clearError();
     const result = await uploadDocument(file);
     if (result) {
-      const entry = { name: file.name, timestamp: new Date() };
+      const entry = { name: file.name, timestamp: new Date(), document_id: result.id };
       setUploadedFiles((prev) => [entry, ...prev]);
       setShowPicker(false);
       onUploaded?.(entry);
     }
   };
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    handleFileSelect(e.dataTransfer.files);
-  }, []);
+    await handleFileSelect(e.dataTransfer.files);
+  }, [uploadDocument, clearError, onUploaded]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();

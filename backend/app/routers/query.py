@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas import QueryRequest, QueryResponse, QueryResultItem
 from app.auth import get_current_user
-from app.models import User, QueryLog
+from app.models import User, QueryLog, Document
 from app.services.search import search_service
 
 router = APIRouter(prefix="/query", tags=["Query"])
@@ -72,14 +72,34 @@ def query_documents(
     )
 
     try:
-        # Perform search
+        # Validate document access if document_id is provided
+        if query_data.document_id:
+            document = db.query(Document).filter(Document.id == query_data.document_id).first()
+
+            if not document:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Document with ID {query_data.document_id} not found"
+                )
+
+            # Check if user has access to this document
+            if document.owner_id != current_user.id and not current_user.is_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to query this document"
+                )
+
+            logger.info(f"Context-aware query for document {query_data.document_id}: {document.original_filename}")
+
+        # Perform search (with optional document context)
         search_results = search_service.search(
             query=query_data.q,
             k=query_data.k,
             search_type=query_data.search_type,
             alpha=query_data.alpha,
             user_id=current_user.id,
-            db=db
+            db=db,
+            document_id=query_data.document_id
         )
 
         # Convert to response format

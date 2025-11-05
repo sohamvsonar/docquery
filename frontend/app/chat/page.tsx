@@ -22,6 +22,7 @@ import { MessageSquare, Paperclip } from "lucide-react";
 interface Attachment {
   name: string;
   timestamp: Date;
+  document_id: number;
 }
 
 interface Message {
@@ -263,12 +264,16 @@ function ChatPageContent() {
     );
 
     try {
+      // Use the first attached document's ID for context-aware querying
+      const attachedDocumentId = pendingAttachments.length > 0 ? pendingAttachments[0].document_id : undefined;
+
       await ragAPI.generateAnswerStream(
         {
           q: userMessage.content,
-          k: 5,
+          k: attachedDocumentId ? 10 : 5, // Get more chunks when querying a specific document
           search_type: "hybrid",
           model: "gpt-4o-mini",
+          document_id: attachedDocumentId, // Pass document_id for context-aware search
         },
         (chunk: string) => {
           setSessions((prev) =>

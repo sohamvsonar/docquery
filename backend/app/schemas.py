@@ -124,6 +124,10 @@ class QueryRequest(BaseModel):
         le=1.0,
         description="Weight for vector search in hybrid mode (0=fulltext only, 1=vector only)"
     )
+    document_id: Optional[int] = Field(
+        default=None,
+        description="Optional document ID to search within specific document only"
+    )
 
 
 class QueryResultItem(BaseModel):
@@ -184,6 +188,10 @@ class RAGRequest(BaseModel):
     stream: bool = Field(
         default=False,
         description="Enable streaming response"
+    )
+    document_id: Optional[int] = Field(
+        default=None,
+        description="Optional document ID to search within specific document only"
     )
 
 

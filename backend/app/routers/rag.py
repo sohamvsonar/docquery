@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas import RAGRequest, RAGResponse, CitationItem, QueryResultItem
 from app.auth import get_current_user
-from app.models import User, QueryLog
+from app.models import User, QueryLog, Document
 from app.services.search import search_service
 from app.services.generator import rag_generator
 from app.services.citation_tracker import citation_tracker
@@ -69,7 +69,26 @@ def generate_answer(
     )
 
     try:
-        # Step 1: Retrieve context using search
+        # Validate document access if document_id is provided
+        if rag_data.document_id:
+            document = db.query(Document).filter(Document.id == rag_data.document_id).first()
+
+            if not document:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Document with ID {rag_data.document_id} not found"
+                )
+
+            # Check if user has access to this document
+            if document.owner_id != current_user.id and not current_user.is_admin:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to query this document"
+                )
+
+            logger.info(f"Context-aware RAG for document {rag_data.document_id}: {document.original_filename}")
+
+        # Step 1: Retrieve context using search (with optional document context)
         search_start = time.time()
 
         search_results = search_service.search(
@@ -78,7 +97,8 @@ def generate_answer(
             search_type=rag_data.search_type,
             alpha=rag_data.alpha,
             user_id=current_user.id,
-            db=db
+            db=db,
+            document_id=rag_data.document_id
         )
 
         search_time_ms = (time.time() - search_start) * 1000
@@ -252,11 +272,27 @@ async def generate_answer_stream(
         start_time = time.time()
 
         try:
-            # Step 1: Retrieve context
+            # Validate document access if document_id is provided
+            if rag_data.document_id:
+                document = db.query(Document).filter(Document.id == rag_data.document_id).first()
+
+                if not document:
+                    yield f"data: {json.dumps({{'type': 'error', 'message': f'Document with ID {rag_data.document_id} not found'}})}\n\n"
+                    return
+
+                # Check if user has access to this document
+                if document.owner_id != current_user.id and not current_user.is_admin:
+                    yield f"data: {json.dumps({{'type': 'error', 'message': 'Not authorized to query this document'}})}\n\n"
+                    return
+
+                logger.info(f"Context-aware RAG streaming for document {rag_data.document_id}: {document.original_filename}")
+
+            # Step 1: Retrieve context (with optional document context)
             search_start = time.time()
 
             # Send search status
-            yield f"data: {json.dumps({'type': 'status', 'message': 'Searching documents...'})}\n\n"
+            search_msg = 'Searching document...' if rag_data.document_id else 'Searching documents...'
+            yield f"data: {json.dumps({'type': 'status', 'message': search_msg})}\n\n"
 
             search_results = search_service.search(
                 query=rag_data.q,
@@ -264,7 +300,8 @@ async def generate_answer_stream(
                 search_type=rag_data.search_type,
                 alpha=rag_data.alpha,
                 user_id=current_user.id,
-                db=db
+                db=db,
+                document_id=rag_data.document_id
             )
 
             search_time_ms = (time.time() - search_start) * 1000

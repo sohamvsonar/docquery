@@ -39,7 +39,8 @@ class SearchService:
         query: str,
         k: int = 10,
         db: Session = None,
-        user_id: int = None
+        user_id: int = None,
+        document_id: int = None
     ) -> List[Dict[str, Any]]:
         """
         Perform semantic search using FAISS vector index.
@@ -49,6 +50,7 @@ class SearchService:
             k: Number of results to return
             db: Database session
             user_id: Optional user ID to filter results by ownership
+            document_id: Optional document ID to search within specific document only
 
         Returns:
             List of search results with chunk info and scores
@@ -87,8 +89,20 @@ class SearchService:
                 # Build query for chunks
                 chunks_query = db.query(Chunk).filter(Chunk.id.in_(chunk_ids))
 
-                # Filter by user ownership if user_id provided and not admin
-                if user_id:
+                # Filter by specific document if document_id provided
+                if document_id:
+                    chunks_query = chunks_query.filter(Chunk.document_id == document_id)
+
+                    # Verify user has access to this document
+                    if user_id:
+                        from app.models import User
+                        user = db.query(User).filter(User.id == user_id).first()
+
+                        if user and not user.is_admin:
+                            chunks_query = chunks_query.join(Document).filter(Document.owner_id == user_id)
+
+                # Filter by user ownership if user_id provided and not admin (and no specific document)
+                elif user_id:
                     from app.models import User
                     user = db.query(User).filter(User.id == user_id).first()
 
@@ -143,7 +157,8 @@ class SearchService:
         query: str,
         k: int = 10,
         db: Session = None,
-        user_id: int = None
+        user_id: int = None,
+        document_id: int = None
     ) -> List[Dict[str, Any]]:
         """
         Perform full-text search using PostgreSQL FTS.
@@ -155,6 +170,7 @@ class SearchService:
             k: Number of results to return
             db: Database session (required)
             user_id: Optional user ID to filter results by ownership
+            document_id: Optional document ID to search within specific document only
 
         Returns:
             List of search results with chunk info and scores
@@ -170,8 +186,45 @@ class SearchService:
             # Use the query as-is, plainto_tsquery handles it properly
             logger.info(f"Performing full-text search for: {query}")
 
-            # Check if we need to filter by user ownership
-            if user_id:
+            # Build base WHERE clause
+            where_clauses = ["to_tsvector(c.content) @@ plainto_tsquery(:query)"]
+            params = {"query": query.strip(), "limit": k}
+
+            # Filter by specific document if document_id provided
+            if document_id:
+                where_clauses.append("c.document_id = :document_id")
+                params["document_id"] = document_id
+
+                # Also check user ownership if user_id provided
+                if user_id:
+                    from app.models import User
+                    user = db.query(User).filter(User.id == user_id).first()
+
+                    if user and not user.is_admin:
+                        where_clauses.append("d.owner_id = :user_id")
+                        params["user_id"] = user_id
+
+                # Build query with document filter
+                where_clause = " AND ".join(where_clauses)
+                search_sql = text(f"""
+                    SELECT
+                        c.id,
+                        c.document_id,
+                        c.content,
+                        c.chunk_index,
+                        c.page_number,
+                        ts_rank(to_tsvector(c.content), plainto_tsquery(:query)) as rank
+                    FROM chunks c
+                    INNER JOIN documents d ON c.document_id = d.id
+                    WHERE {where_clause}
+                    ORDER BY rank DESC
+                    LIMIT :limit;
+                """)
+
+                result = db.execute(search_sql, params)
+
+            # Check if we need to filter by user ownership (no specific document)
+            elif user_id:
                 from app.models import User
                 user = db.query(User).filter(User.id == user_id).first()
 
@@ -261,7 +314,8 @@ class SearchService:
         k: int = 10,
         alpha: float = 0.5,
         db: Session = None,
-        user_id: int = None
+        user_id: int = None,
+        document_id: int = None
     ) -> List[Dict[str, Any]]:
         """
         Perform hybrid search using Reciprocal Rank Fusion (RRF).
@@ -274,6 +328,7 @@ class SearchService:
             alpha: Weight for vector search (0-1, higher = more vector weight)
             db: Database session
             user_id: Optional user ID to filter results by ownership
+            document_id: Optional document ID to search within specific document only
 
         Returns:
             List of search results ranked by RRF score
@@ -285,9 +340,9 @@ class SearchService:
         # Fetch more results from each method for better fusion
         fetch_k = k * 2
 
-        # Perform both searches with user filtering
-        vector_results = self.vector_search(query, k=fetch_k, db=db, user_id=user_id)
-        fulltext_results = self.fulltext_search(query, k=fetch_k, db=db, user_id=user_id)
+        # Perform both searches with user filtering and optional document filtering
+        vector_results = self.vector_search(query, k=fetch_k, db=db, user_id=user_id, document_id=document_id)
+        fulltext_results = self.fulltext_search(query, k=fetch_k, db=db, user_id=user_id, document_id=document_id)
 
         logger.info(
             f"Hybrid search: {len(vector_results)} vector results, "
@@ -366,7 +421,8 @@ class SearchService:
         alpha: float = 0.5,
         user_id: int = None,
         db: Session = None,
-        use_cache: bool = True
+        use_cache: bool = True,
+        document_id: int = None
     ) -> List[Dict[str, Any]]:
         """
         Main search interface supporting multiple search types with caching.
@@ -379,6 +435,7 @@ class SearchService:
             user_id: Optional user ID for access control
             db: Database session
             use_cache: Whether to use query cache (default: True)
+            document_id: Optional document ID to search within specific document only
 
         Returns:
             List of search results
@@ -386,10 +443,14 @@ class SearchService:
         if not query or not query.strip():
             return []
 
-        logger.info(f"Search request: query='{query[:50]}...', type={search_type}, k={k}")
+        logger.info(
+            f"Search request: query='{query[:50]}...', type={search_type}, k={k}, "
+            f"document_id={document_id if document_id else 'all'}"
+        )
 
-        # Check query cache first (if enabled and user_id provided)
-        if use_cache and user_id is not None:
+        # Check query cache first (if enabled, user_id provided, and no specific document)
+        # Don't cache document-specific queries as they're context-dependent
+        if use_cache and user_id is not None and document_id is None:
             cached_results = self.cache.get_query_cache(
                 query=query,
                 k=k,
@@ -402,13 +463,13 @@ class SearchService:
                 logger.info(f"Returning {len(cached_results)} cached results")
                 return cached_results
 
-        # Perform search based on type (user filtering is done within each search method)
+        # Perform search based on type (user and document filtering done within each search method)
         if search_type == "vector":
-            results = self.vector_search(query, k=k, db=db, user_id=user_id)
+            results = self.vector_search(query, k=k, db=db, user_id=user_id, document_id=document_id)
         elif search_type == "fulltext":
-            results = self.fulltext_search(query, k=k, db=db, user_id=user_id)
+            results = self.fulltext_search(query, k=k, db=db, user_id=user_id, document_id=document_id)
         elif search_type == "hybrid":
-            results = self.hybrid_search(query, k=k, alpha=alpha, db=db, user_id=user_id)
+            results = self.hybrid_search(query, k=k, alpha=alpha, db=db, user_id=user_id, document_id=document_id)
         else:
             logger.error(f"Unknown search type: {search_type}")
             return []
@@ -420,8 +481,9 @@ class SearchService:
         if db:
             results = self._enrich_with_document_info(results, db)
 
-        # Cache the results (if enabled and user_id provided)
-        if use_cache and user_id is not None and results:
+        # Cache the results (if enabled, user_id provided, and no specific document)
+        # Don't cache document-specific queries as they're context-dependent
+        if use_cache and user_id is not None and document_id is None and results:
             self.cache.set_query_cache(
                 query=query,
                 k=k,

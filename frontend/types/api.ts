@@ -77,6 +77,7 @@ export interface RAGRequest {
   temperature?: number;
   max_tokens?: number;
   stream?: boolean;
+  document_id?: number; // Optional document ID for context-aware queries
 }
 
 export interface Citation {
