@@ -99,6 +99,4 @@ Auth: Include `Authorization: Bearer <token>` for protected routes. Use the logi
 - FAISS index empty: ensure Celery worker is running and that uploads complete
 - CORS errors: verify `NEXT_PUBLIC_API_URL` and backend CORS settings
 
-## License
-Proprietary – internal use for DocQuery deployment unless stated otherwise.
 
